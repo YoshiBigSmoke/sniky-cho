@@ -8,6 +8,8 @@ A terminal-based network recon tool written in Bash. Designed for passive inform
 ![platform](https://img.shields.io/badge/platform-linux-informational?style=flat&color=7c3aed)
 ![license](https://img.shields.io/badge/license-MIT-informational?style=flat&color=7c3aed)
 
+![demo](demo.gif)
+
 ---
 
 ## Features
