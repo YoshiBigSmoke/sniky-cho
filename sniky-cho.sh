@@ -181,6 +181,22 @@ sel_iface() {
 # 1 — NETWORK INFO
 # ────────────────────────────────────────────────────────────────────────────
 
+get_wan_ip() {
+    local ip
+    ip=$(curl -s --max-time 4 ifconfig.me 2>/dev/null)
+    [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo "$ip" && return
+    ip=$(curl -s --max-time 4 checkip.amazonaws.com 2>/dev/null)
+    [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && echo "$ip" && return
+    # fallback: SNMP WAN interface OID (ipAdEntAddr de la interfaz WAN)
+    local gw; gw=$(get_gateway)
+    if command -v snmpwalk &>/dev/null && [[ -n "$gw" ]]; then
+        snmpwalk -v2c -c public -t 2 -r 0 "$gw" 1.3.6.1.2.1.4.20.1.1 2>/dev/null \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' \
+            | grep -vE '^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.|127\.|0\.)' \
+            | head -1
+    fi
+}
+
 mod_info() {
     titulo "network info" "fully passive · sends zero packets"
     need_iface || return
@@ -192,9 +208,18 @@ mod_info() {
     freq=$(iw dev "$IFACE" link 2>/dev/null | awk '/freq/ {print $2}')
     signal=$(iw dev "$IFACE" link 2>/dev/null | awk '/signal/ {print $2,$3}')
 
+    info "fetching WAN IP..."
+    local wan_ip
+    wan_ip=$(get_wan_ip)
+
     row "${DI}interface  ${N}${WH}${IFACE}${N}"
     row "${DI}ip/subnet  ${N}${WH}${subnet}${N}"
     row "${DI}gateway    ${N}${WH}${gw}${N}"
+    if [[ -n "$wan_ip" ]]; then
+        row "${DI}wan ip     ${N}${GR}${wan_ip}${N}  ${DI}(ISP static/dynamic)${N}"
+    else
+        row "${DI}wan ip     ${N}${DI}unavailable (sin conexión a internet)${N}"
+    fi
     row "${DI}ap bssid   ${N}${PU}${bssid}${N}"
     row "${DI}frequency  ${N}${GR}${freq} MHz${N}"
     row "${DI}signal     ${N}${GR}${signal}${N}"
